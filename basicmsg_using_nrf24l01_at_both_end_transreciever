@@ -51,3 +51,86 @@ void loop() {
 
   delay(3000);
 }
+
+//reciver end code: 
+
+#include <SPI.h>
+#include <nRF24L01.h>
+#include <RF24.h>
+#include <WiFi.h>
+
+RF24 radio(4, 5); // CE, CSN
+const byte address[6] = "00001";
+
+const char* ssid = "Rdx";
+const char* password = "abcd1234";
+
+WiFiServer server(80);
+char message[32] = "Waiting for data...";  // Default message
+
+void setup() {
+  Serial.begin(115200);
+
+  // Connect to Wi-Fi
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting to WiFi");
+  unsigned long start = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - start < 15000) {
+    Serial.print(".");
+    delay(500);
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\n✅ Connected to WiFi!");
+    Serial.print("🌐 IP Address: ");
+    Serial.println(WiFi.localIP());
+    server.begin();
+  } else {
+    Serial.println("\n❌ Failed to connect to WiFi.");
+  }
+
+  // NRF24L01 setup
+  if (!radio.begin()) {
+    Serial.println("❌ NRF24L01 not found!");
+    while (1);
+  }
+
+  radio.setPALevel(RF24_PA_LOW);
+  radio.setChannel(108);
+  radio.setDataRate(RF24_250KBPS);
+  radio.openReadingPipe(0, address);
+  radio.startListening();
+
+  Serial.println("✅ Receiver Ready!");
+}
+
+void loop() {
+  // Receive message
+  if (radio.available()) {
+    radio.read(&message, sizeof(message));
+    Serial.print("📡 Received: ");
+    Serial.println(message);
+  }
+
+  // Serve dashboard
+  WiFiClient client = server.available();
+  if (client) {
+    client.readStringUntil('\r');  // read request line
+    client.flush();
+
+    String html = "<!DOCTYPE html><html><head><meta http-equiv='refresh' content='2'/>"
+                  "<style>body{font-family:sans-serif;text-align:center;}</style></head><body>"
+                  "<h2>📡 NRF24L01 Web Dashboard</h2>"
+                  "<p><b>Received Message:</b><br>" + String(message) + "</p>"
+                  "</body></html>";
+
+    client.println("HTTP/1.1 200 OK");
+    client.println("Content-Type: text/html");
+    client.println("Connection: close");
+    client.println();
+    client.print(html);
+    delay(10);
+  }
+}
+
+
