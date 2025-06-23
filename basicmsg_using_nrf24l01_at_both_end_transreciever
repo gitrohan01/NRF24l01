@@ -1,0 +1,53 @@
+// basic code for creating a dashboard where transmitter transmits msg and receiver receives it. 
+// we also developed the basic ui interface for the receiver end.
+
+//transmitter code:
+#include <SPI.h>
+#include <nRF24L01.h>
+#include <RF24.h>
+
+RF24 radio(4, 5); // CE, CSN
+const byte address[6] = "00001";
+
+const char* messages[] = {
+  "Hello Earth!",
+  "Space Club Rocks!",
+  "ESP32 is awesome",
+  "NRF24L01 test",
+  "Random Message",
+  "Dhole Patil FTW",
+  "Weather Clean",
+  "Sky Clear Today"
+};
+
+char message[32]; // Message buffer
+
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+
+  if (!radio.begin()) {
+    Serial.println("❌ NRF24L01 not found!");
+    while (1);
+  }
+
+  radio.setPALevel(RF24_PA_LOW);
+  radio.setChannel(108);
+  radio.setDataRate(RF24_250KBPS);
+  radio.openWritingPipe(address);
+  radio.stopListening();
+
+  Serial.println("✅ Transmitter Ready!");
+}
+
+void loop() {
+  const char* randomMsg = messages[random(0, 8)];
+  strncpy(message, randomMsg, sizeof(message));
+
+  bool sent = radio.write(&message, sizeof(message));
+  Serial.print("Sending: ");
+  Serial.println(message);
+  Serial.println(sent ? "✅ Sent" : "❌ Failed");
+
+  delay(3000);
+}
